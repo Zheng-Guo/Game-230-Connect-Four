@@ -14,7 +14,7 @@ char board[boardHeight][boardWidth];
 int currentVacancy[boardWidth];
 
 void initialize(){
-	isCyclic=false;
+	isCyclic=true;
 	againstAI=false;
 	for(int i=0;i<boardWidth;++i){
 		currentVacancy[i]=boardHeight-1;
@@ -45,7 +45,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		++left;
 		--i;
 	}
-	if(isCyclic&&(left+1)<winningThreshold){
+	if(i<0&&isCyclic&&(left+1)<winningThreshold){
 		i=boardWidth-1;
 		while(i>=0&&(left+1)<winningThreshold&&piece==board[rowNumber][i]){
 		++left;
@@ -57,7 +57,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		++right;
 		++i;
 	}
-	if(isCyclic&&(right+1)<winningThreshold){
+	if(i>=boardWidth&&isCyclic&&(right+1)<winningThreshold){
 		i=0;
 		while(i>=0&&(right+1)<winningThreshold&&piece==board[rowNumber][i]){
 		++right;
@@ -84,7 +84,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		--i;
 		--j;
 	}
-	if(isCyclic&&(topLeft+1)<winningThreshold){
+	if(j<0&&isCyclic&&(topLeft+1)<winningThreshold){
 		j=boardWidth-1;
 		while(i>=0&&j>=0&&(topLeft+1)<winningThreshold&&piece==board[i][j]){
 		++topLeft;
@@ -98,7 +98,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		++i;
 		++j;
 	}
-	if(isCyclic&&(bottomRight+1)<winningThreshold){
+	if(j>=boardWidth&&isCyclic&&(bottomRight+1)<winningThreshold){
 		j=0;
 		while(i<boardHeight&&j<boardWidth&&(bottomRight+1)<winningThreshold&&piece==board[i][j]){
 			++bottomRight;
@@ -114,7 +114,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		--i;
 		++j;
 	}
-	if(isCyclic&&(topRight+1)<winningThreshold){
+	if(j>=boardWidth&&isCyclic&&(topRight+1)<winningThreshold){
 		j=0;
 		while(i>=0&&j<boardWidth&&(topRight+1)<winningThreshold&&piece==board[i][j]){
 		++topLeft;
@@ -128,7 +128,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		++i;
 		--j;
 	}
-	if(isCyclic&&(bottomLeft+1)<winningThreshold){
+	if(j<0&&isCyclic&&(bottomLeft+1)<winningThreshold){
 		j=boardWidth-1;
 		while(i<boardHeight&&j>=0&&(bottomLeft+1)<winningThreshold&&piece==board[i][j]){
 			++bottomLeft;
@@ -173,7 +173,6 @@ int main(){
 			board[currentVacancy[columnNumber]--][columnNumber]=player;
 			display();
 			alignmentNumber=alignment(player,currentVacancy[columnNumber]+1,columnNumber);
-			//cout<<alignmentNumber<<endl;
 			if(alignmentNumber>=winningThreshold){
 				cout<<"Player "<<player<<" won!"<<endl;
 				break;
