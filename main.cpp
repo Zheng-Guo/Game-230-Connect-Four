@@ -11,41 +11,18 @@ const int WINNING_THRESHOLD=4;
 const int PLAN_AHEAD=3;
 const char EMPTY_SLOT='.';
 const char PLAYER1='X',PLAYER2='O';
-
 const int FULL_COLUMN=numeric_limits<int>::min();
 const int PENALTY_FACTOR=4;
 
-bool isCyclic;
-bool againstAI;
-
 char board[BOARD_HEIGHT][BOARD_WIDTH];
-char boardForAI[BOARD_HEIGHT][BOARD_WIDTH];
 int currentVacancy[BOARD_WIDTH];
-int currentVacancyForAI[BOARD_WIDTH];
 
 void initialize(){
 	srand((int)time(0));
-	char response;
-	cout<<"Do you want to play on cyclic board(the left side of the board is connected to the right side)?"<<endl;
-	cin>>response;
-	while(response!='y'&&response!='Y'&&response!='n'&&response!='N'){
-		cout<<"Invalid response. Please try again."<<endl;
-		cin>>response;
-	}
-	isCyclic=('y'==response||'Y'==response);
-	cout<<"Do you want single player mode(against AI)?"<<endl;
-	cin>>response;
-	while(response!='y'&&response!='Y'&&response!='n'&&response!='N'){
-		cout<<"Invalid response. Please try again."<<endl;
-		cin>>response;
-	}
-	againstAI=('y'==response||'Y'==response);
 	for(int i=0;i<BOARD_WIDTH;++i){
 		currentVacancy[i]=BOARD_HEIGHT-1;
-		currentVacancyForAI[i]=BOARD_HEIGHT-1;
 		for(int j=0;j<BOARD_HEIGHT;++j){
 			board[j][i]=EMPTY_SLOT;
-			boardForAI[j][i]=EMPTY_SLOT;
 		}
 	}
 
@@ -64,9 +41,10 @@ int validatePlayerInput(){
 	return columnNumber;
 }
 
-int alignment(char piece,int rowNumber,int columnNumber){
+int alignment(char piece,int rowNumber,int columnNumber,bool isCyclic){
 	int left=0,right=0,bottom=0,topLeft=0,topRight=0,bottomLeft=0,bottomRight=0,i,j,max=0;
 
+	//Count the number of player pieces aligned horizontally with the new piece
 	i=columnNumber-1;
 	while(i>=0&&(left+1)<WINNING_THRESHOLD&&piece==board[rowNumber][i]){
 		++left;
@@ -93,6 +71,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 	}
 	max=left+right+1;
 
+	//Count the number of player pieces aligned vertically with the new piece
 	i=rowNumber+1;
 	while(i<BOARD_HEIGHT&&(bottom+1)<WINNING_THRESHOLD&&piece==board[i][columnNumber]){
 		++bottom;
@@ -100,6 +79,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 	}
 	max=max>=(bottom+1)?max:bottom+1;
 
+	//Count the number of player pieces aligned diagonally with the new piece
 	i=rowNumber-1,j=columnNumber-1;
 	while(i>=0&&j>=0&&(topLeft+1)<WINNING_THRESHOLD&&piece==board[i][j]){
 		++topLeft;
@@ -159,7 +139,7 @@ int alignment(char piece,int rowNumber,int columnNumber){
 		}
 	}
 	max=max>=(topRight+bottomLeft+1)?max:topRight+bottomLeft+1;
-
+	//The longest alignment among four directions is returned
 	return max;
 }
 
@@ -169,48 +149,53 @@ bool isBoardFull(){
 	return true;
 }
 
-void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
+//Examine all possible moves with a given number of steps.
+//Both the length of alignment and the number of steps needed are considered.
+//The fewer the steps needed to produce a long alignment, the higher the score(so the square of remaining step number is multiplied to the score to emphasize its significance).
+//If human player could win at some point, a penalty is deducted from the score to be returned, making the previous AI move less favourable. The fewer steps needed for the human player to win, the higher the penalty will be.
+void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[],bool isCyclic){
 	char nextPlayer;
-	if(1==step&&currentPlayer==AI){
+	
+	if(1==step&&currentPlayer==AI){//Consider current step only
 		for(int i=0;i<BOARD_WIDTH;i++){
 			if(currentVacancy[i]>=0)
-				scores[i]=alignment(currentPlayer,currentVacancy[i],i);	
+				scores[i]=alignment(currentPlayer,currentVacancy[i],i,isCyclic);	
 			else
 				scores[i]=FULL_COLUMN;
 		}
-	}else if(currentPlayer==AI){
+	}else if(currentPlayer==AI){//If AI is to make a move and consider sebsequent steps afterwards
 		int subsequentScores[BOARD_WIDTH];
 		for(int i=0;i<BOARD_WIDTH;i++){
 			if(currentVacancy[i]>=0){
-				int score=alignment(currentPlayer,currentVacancy[i],i);
+				int score=alignment(currentPlayer,currentVacancy[i],i,isCyclic);
 				if(score>=WINNING_THRESHOLD)
 					scores[i]=WINNING_THRESHOLD*step*step;
 				else{
-					board[currentVacancy[i]][i]=currentPlayer;
+					board[currentVacancy[i]][i]=currentPlayer;//The board is marked with an AI piece before considering subsequent moves
 					--currentVacancy[i];
 					if(isBoardFull())
 						scores[i]=score*step*step;
 					else{
-						if(PLAYER1==currentPlayer)
+						if(PLAYER1==currentPlayer)//Switch player and examine possible human player moves
 							nextPlayer=PLAYER2;
 						else
 							nextPlayer=PLAYER1;
-						assessSubsequentMoves(nextPlayer,AI,step,subsequentScores);
+						assessSubsequentMoves(nextPlayer,AI,step,subsequentScores,isCyclic);
 						int maxScore=subsequentScores[0],losePenalty=0;
 						for(int j=0;j<BOARD_WIDTH;j++){
-							if(0>subsequentScores[j]&&FULL_COLUMN<subsequentScores[j]&&losePenalty>subsequentScores[j])
+							if(0>subsequentScores[j]&&FULL_COLUMN<subsequentScores[j]&&losePenalty>subsequentScores[j])//The highest penalty value will be used
 								losePenalty=subsequentScores[j];
 							if(maxScore<subsequentScores[j])
 								maxScore=subsequentScores[j];
 						}
-						if(maxScore<=score)
+						if(maxScore<=score)//Current score will be used if subsequent moves do not generate higher scores
 							scores[i]=score*step*step;
 						else
 							scores[i]=maxScore;
 						if(losePenalty<0)
 							scores[i]+=losePenalty;
 					}
-					++currentVacancy[i];
+					++currentVacancy[i];//Unmark the board
 					board[currentVacancy[i]][i]=EMPTY_SLOT;
 				}
 			}else
@@ -220,11 +205,11 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 		int subsequentScores[BOARD_WIDTH];
 		for(int i=0;i<BOARD_WIDTH;i++){
 			if(currentVacancy[i]>=0){
-				int score=alignment(currentPlayer,currentVacancy[i],i);
-				if(score>=WINNING_THRESHOLD)
+				int score=alignment(currentPlayer,currentVacancy[i],i,isCyclic);
+				if(score>=WINNING_THRESHOLD)//Penalty generated if human player could win with this move
 					scores[i]=-PENALTY_FACTOR*step*step;
 				else {
-					board[currentVacancy[i]][i]=currentPlayer;
+					board[currentVacancy[i]][i]=currentPlayer;//The board is marked with a human player piece before considering subsequent moves
 					--currentVacancy[i];
 					if(isBoardFull())
 						scores[i]=0;
@@ -233,7 +218,7 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 							nextPlayer=PLAYER2;
 						else
 							nextPlayer=PLAYER1;
-						assessSubsequentMoves(nextPlayer,AI,step-1,subsequentScores);
+						assessSubsequentMoves(nextPlayer,AI,step-1,subsequentScores,isCyclic);
 						int maxScore=subsequentScores[0];
 						for(int j=0;j<BOARD_WIDTH;j++){
 							if(maxScore<subsequentScores[j])
@@ -250,12 +235,17 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 	}
 }
 
-int AINextMove(char currentPlayer,char AI,int step){
+//Find the most promising move within a given number of considerations.
+//An AI move which produces longer alignment in shorter steps returns higher score.
+//An AI move which leads to human player victory produces very low score, thus will be avoided by the AI.
+//The column number to be returned is the move that most likely to create a long alignment as well as stop the human player from winning.
+//Penalty is made severe to the score, so avoiding human player to win takes priority over AI's own victory.
+int AINextMove(char currentPlayer,char AI,int step,bool isCyclic){
 	int scores[BOARD_WIDTH],columns[BOARD_WIDTH],maxScore,maxScoreColumn,selectionUpperBound=1;
-	assessSubsequentMoves(currentPlayer,AI,step,scores);
+	assessSubsequentMoves(currentPlayer,AI,step,scores,isCyclic);
 	for(int i=0;i<BOARD_WIDTH;i++)
 		columns[i]=i;
-	for(int i=0;i<BOARD_WIDTH-1;i++){
+	for(int i=0;i<BOARD_WIDTH-1;i++){//Sort the returned scores with insert sort.
 		int maxIndex=i;
 		for(int j=i;j<BOARD_WIDTH;j++)
 			if(scores[maxIndex]<scores[j])
@@ -268,7 +258,7 @@ int AINextMove(char currentPlayer,char AI,int step){
 		columns[maxIndex]=temp;
 	}
 	maxScore=scores[0];
-	while(selectionUpperBound<BOARD_WIDTH){
+	while(selectionUpperBound<BOARD_WIDTH){//If max score occures more than once, one is chosen randomly
 		if(scores[selectionUpperBound]<maxScore)
 			break;
 		else 
@@ -279,8 +269,6 @@ int AINextMove(char currentPlayer,char AI,int step){
 	else
 		return columns[0];
 }
-
-
 
 void display(){
 	int i,j;
@@ -297,15 +285,30 @@ void display(){
 int main(){
 	char response,player;
 	int columnNumber,alignmentNumber;
+	bool isCyclic,againstAI;
 
 	do{
 		initialize();
 		player=PLAYER1;
+		cout<<"Do you want to play on cyclic board(the left side of the board is connected to the right side)?"<<endl;
+		cin>>response;
+		while(response!='y'&&response!='Y'&&response!='n'&&response!='N'){
+			cout<<"Invalid response. Please try again."<<endl;
+			cin>>response;
+		}
+		isCyclic=('y'==response||'Y'==response);
+		cout<<"Do you want single player mode(against AI)?"<<endl;
+		cin>>response;
+		while(response!='y'&&response!='Y'&&response!='n'&&response!='N'){
+			cout<<"Invalid response. Please try again."<<endl;
+			cin>>response;
+		}
+		againstAI=('y'==response||'Y'==response);
 		display();
 		do{
 			if(againstAI&&PLAYER2==player){
 				cout<<"Player "<<player<<"'s turn!"<<endl;
-				columnNumber=AINextMove(player,PLAYER2,PLAN_AHEAD);
+				columnNumber=AINextMove(player,PLAYER2,PLAN_AHEAD,isCyclic);
 				cout<<"The piece has been placed in column "<<columnNumber+1<<endl;
 			}else{
 				cout<<"Player "<<player<<"'s turn! Type the column number to insert a piece."<<endl;
@@ -313,7 +316,7 @@ int main(){
 			}
 			board[currentVacancy[columnNumber]--][columnNumber]=player;
 			display();
-			alignmentNumber=alignment(player,currentVacancy[columnNumber]+1,columnNumber);
+			alignmentNumber=alignment(player,currentVacancy[columnNumber]+1,columnNumber,isCyclic);
 			if(alignmentNumber>=WINNING_THRESHOLD){
 				cout<<"Player "<<player<<" won!"<<endl;
 				break;
