@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <limits> 
 
 using namespace std;
 
@@ -162,52 +163,48 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 			if(currentVacancy[i]>=0)
 				scores[i]=alignment(currentPlayer,currentVacancy[i],i);	
 			else
-				scores[i]=-2;
+				scores[i]=numeric_limits<int>::min();
 		}
-	/*	while(selectionUpperBound<boardWidth&&(scores[selectionUpperBound]>=winningThreshold||scores[selectionUpperBound]==maxScore))
-			++selectionUpperBound;
-		if(selectionUpperBound>1)
-			return columns[rand()%selectionUpperBound];
-		else
-			return columns[0];*/
 	}else if(currentPlayer==AI){
 		int subsequentScores[boardWidth];
 		for(int i=0;i<boardWidth;i++){
 			if(currentVacancy[i]>=0){
 				int score=alignment(currentPlayer,currentVacancy[i],i);
 				if(score>=winningThreshold)
-					scores[i]=score;
+					scores[i]=winningThreshold*step*step;
 				else{
 					board[currentVacancy[i]][i]=currentPlayer;
 					--currentVacancy[i];
 					if(isBoardFull())
-						scores[i]=score;
+						scores[i]=score+step;
 					else{
 						if('X'==currentPlayer)
 							currentPlayer='O';
 						else
 							currentPlayer='X';
 						assessSubsequentMoves(currentPlayer,AI,step-1,subsequentScores);
-						int maxScore=subsequentScores[0];
+						int maxScore=subsequentScores[0],losePenalty=-1;
 						bool lose=false;
 						for(int j=0;j<boardWidth;j++){
-							if(-1==subsequentScores[j])
-								lose=true;
+							if(0>subsequentScores[j]&&numeric_limits<int>::min()<subsequentScores[j]&&losePenalty>subsequentScores[j])
+								losePenalty=subsequentScores[j];
 							if(maxScore<subsequentScores[j])
 								maxScore=subsequentScores[j];
 						}
-						if(lose)
+					/*	if(lose)
 							scores[i]=-1;
-						else if(0==maxScore)
-							scores[i]=score;
+						else*/ if(0==maxScore||maxScore<=score)
+							scores[i]=score*step*step;
 						else
 							scores[i]=maxScore;
+						if(losePenalty<-1)
+							scores[i]+=losePenalty;
 					}
 					++currentVacancy[i];
 					board[currentVacancy[i]][i]='.';
 				}
 			}else
-				scores[i]=-2;
+				scores[i]=numeric_limits<int>::min();
 		}
 	}else{
 		int subsequentScores[boardWidth];
@@ -215,7 +212,7 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 			if(currentVacancy[i]>=0){
 				int score=alignment(currentPlayer,currentVacancy[i],i);
 				if(score>=winningThreshold)
-					scores[i]=-1;
+					scores[i]=-step*step;
 				else {
 					board[currentVacancy[i]][i]=currentPlayer;
 					--currentVacancy[i];
@@ -226,7 +223,7 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 							currentPlayer='O';
 						else
 							currentPlayer='X';
-						assessSubsequentMoves(currentPlayer,AI,step-1,subsequentScores);
+						assessSubsequentMoves(currentPlayer,AI,step,subsequentScores);
 						int maxScore=subsequentScores[0];
 						bool lose=false;
 						for(int j=0;j<boardWidth;j++){
@@ -235,9 +232,9 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 							if(maxScore<subsequentScores[j])
 								maxScore=subsequentScores[j];
 						}
-						if(lose)
+					/*	if(lose)
 							scores[i]=-1;
-						else
+						else*/
 							scores[i]=maxScore;
 					}
 					++currentVacancy[i];
@@ -247,6 +244,9 @@ void assessSubsequentMoves(char currentPlayer,char AI,int step,int scores[]){
 				scores[i]=-2;
 		}
 	}
+	for(int i=0;i<boardWidth;i++)
+		cout<<scores[i]<<" ";
+	cout<<endl;
 }
 
 int AINextMove(char currentPlayer,char AI,int step){
@@ -266,6 +266,12 @@ int AINextMove(char currentPlayer,char AI,int step){
 		columns[i]=columns[maxIndex];
 		columns[maxIndex]=temp;
 	}
+/*	for(int i=0;i<boardWidth;i++)
+		cout<<scores[i]<<" ";
+	cout<<endl;
+	for(int i=0;i<boardWidth;i++)
+		cout<<columns[i]<<" ";
+	cout<<endl;*/
 	maxScore=scores[0];
 	while(selectionUpperBound<boardWidth){
 		if(scores[selectionUpperBound]<maxScore)
