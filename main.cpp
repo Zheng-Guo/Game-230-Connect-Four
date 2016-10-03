@@ -30,14 +30,18 @@ void initialize(){
 
 int validatePlayerInput(){
 	int columnNumber;
-	while(cin>>columnNumber){
-		if(columnNumber<1||columnNumber>BOARD_WIDTH)
+	do{
+		cin>>columnNumber;
+		if(cin.fail()||columnNumber<1||columnNumber>BOARD_WIDTH){
 			cout<<"Invalid column number. Please try again."<<endl;
+			cin.clear();
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+		}
 		else if(currentVacancy[columnNumber-1]<0)
 			cout<<"Column "<<columnNumber<<" is full. Choose another column."<<endl;
 		else
 			break;
-	}
+	}while(true);
 	return columnNumber;
 }
 
